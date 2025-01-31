@@ -28,7 +28,7 @@ let confidence3 = "";
 
 let latestResults = null;
 let lastUpdateTime = 0;
-const updateInterval = 500; // 0.5秒
+const updateInterval = 1000; // 1.0秒
 
 // Load the model first
 function preload() {
