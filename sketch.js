@@ -88,6 +88,9 @@ function gotResult(error, results) {
     console.error(error);
     return;
   }
+
+  // Store the latest results
+  latestResults = results;
   
   // Classifiy again!
   classifyVideo();
