@@ -26,6 +26,10 @@ let confidence = "";
 let confidence2 = "";
 let confidence3 = "";
 
+let latestResults = null;
+let lastUpdateTime = 0;
+const updateInterval = 500; // 0.5秒
+
 // Load the model first
 function preload() {
   classifier = ml5.imageClassifier('https://teachablemachine.withgoogle.com/models/uz0fWPuJY/model.json');
@@ -47,6 +51,17 @@ function draw() {
   background(0);
   // Draw the video
   image(flippedVideo, 0, 0);
+
+  // Update the labels every 0.5 seconds
+  if (latestResults && millis() - lastUpdateTime > updateInterval) {
+    label = latestResults[0].label;
+    confidence = nf(latestResults[0].confidence, 0, 2);
+    label2 = latestResults[1].label;
+    confidence2 = nf(latestResults[1].confidence, 0, 2);
+    label3 = latestResults[2].label;
+    confidence3 = nf(latestResults[2].confidence, 0, 2);
+    lastUpdateTime = millis();
+  }
 
   // Draw the label
   fill(255);
@@ -73,14 +88,6 @@ function gotResult(error, results) {
     console.error(error);
     return;
   }
-  // The results are in an array ordered by confidence.
-  // console.log(results[0&1]);
-  label = results[0].label;
-  confidence = nf(results[0].confidence, 0, 2);
-  label2 = results[1].label;
-  confidence2 = nf(results[1].confidence, 0, 2);
-  label3 = results[2].label;
-  confidence3 = nf(results[2].confidence, 0, 2);
   
   // Classifiy again!
   classifyVideo();
