@@ -27,6 +27,7 @@ let confidence2 = "";
 let confidence3 = "";
 
 let latestResults = null;
+let latestConfidences = null;
 let lastUpdateTime = 0;
 const updateInterval = 1000; // 1.0秒
 
@@ -52,14 +53,14 @@ function draw() {
   // Draw the video
   image(flippedVideo, 0, 0);
 
-  // Update the labels every 0.5 seconds
+  // Update the labels and confidence every 0.5 seconds
   if (latestResults && millis() - lastUpdateTime > updateInterval) {
     label = latestResults[0].label;
-    confidence = nf(latestResults[0].confidence, 0, 2);
+    confidence = latestConfidences[0];
     label2 = latestResults[1].label;
-    confidence2 = nf(latestResults[1].confidence, 0, 2);
+    confidence2 = latestConfidences[1];
     label3 = latestResults[2].label;
-    confidence3 = nf(latestResults[2].confidence, 0, 2);
+    confidence3 = latestConfidences[2];
     lastUpdateTime = millis();
   }
 
@@ -89,8 +90,9 @@ function gotResult(error, results) {
     return;
   }
 
-  // Store the latest results
+  // Store the latest results and confidences
   latestResults = results;
+  latestConfidences = results.map(r => nf(r.confidence, 0, 2));
   
   // Classifiy again!
   classifyVideo();
