@@ -50,8 +50,11 @@ function setup() {
 
 function draw() {
   background(0);
-  // Draw the video
-  image(flippedVideo, 0, 0);
+  if (video.loadedmetadata) {
+    flippedVideo = ml5.flipImage(video);
+    image(flippedVideo, 0, 0);
+  }
+}
 
   // Update the labels and confidence every 0.5 seconds
   if (latestResults && millis() - lastUpdateTime > updateInterval) {
