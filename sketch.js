@@ -39,7 +39,9 @@ function preload() {
 function setup() {
   createCanvas(320, 300);
   // Create the video
-  video = createCapture(VIDEO);
+  video = createCapture(VIDEO, () => {
+    classifyVideo(); // カメラ準備完了後に分類開始
+  });
   video.size(320, 240);
   video.hide();
 
@@ -51,8 +53,7 @@ function setup() {
 function draw() {
   background(0);
   if (video.loadedmetadata) {
-    flippedVideo = ml5.flipImage(video);
-    image(flippedVideo, 0, 0);
+    image(Video, 0, 0);//そのまま表示
   }
 }
 
