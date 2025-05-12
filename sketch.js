@@ -6,61 +6,64 @@
 let classifier;
 const modelURL = 'https://teachablemachine.withgoogle.com/models/bXy2kDNi/';
 
-
 let video;
-let latest = [];                  // 生の結果
-let lastUpdate = 0;
-const UPDATE_INTERVAL = 500;      // 0.5 秒
+let latestResults = [];
+let lastUpdateTime = 0;
+const updateInterval = 500;   // 0.5 秒
 
-// 描画用（最大 3 件）
+// 表示用
 let label  = '', label2 = '', label3 = '';
 let conf   = '', conf2  = '', conf3  = '';
 
-// ---------------- セットアップ ----------------
-function preload(){
+// ----------------- モデル読み込み --------------
+function preload() {
   classifier = ml5.imageClassifier(modelURL + 'model.json');
 }
 
-function setup(){
+// ----------------- セットアップ ----------------
+function setup() {
   createCanvas(320, 300);
 
   video = createCapture(VIDEO, () => classifyVideo());
-  video.size(320,240);
+  video.size(320, 240);
   video.hide();
 }
 
-// ---------------- 分類ループ -----------------
-function classifyVideo(){
+// ----------------- 分類ループ -----------------
+function classifyVideo() {
   classifier.classify(video, gotResult);
 }
 
-function gotResult(err, res){
-  if(err){ console.error(err); return; }
-  latest = res;                   // 生結果を保存
-  classifyVideo();                // ループ継続
+function gotResult(err, results) {
+  if (err) { console.error(err); return; }
+  latestResults = results;          // 全件保存
+  classifyVideo();                  // 連続分類
 }
 
-// ---------------- 描画 -----------------------
-function draw(){
+// ----------------- 描画 ------------------------
+function draw() {
   background(0);
 
-  /* 1. カメラ映像を鏡写しで表示 */
+  /* ① 映像を鏡写しで描画 */
   push();
-  translate(video.width,0); scale(-1,1);
-  image(video,0,0);
+  translate(video.width, 0);
+  scale(-1, 1);
+  image(video, 0, 0);
   pop();
 
-  /* 2. 0.5 秒ごとにラベルを更新 */
-  if(latest.length && millis()-lastUpdate > UPDATE_INTERVAL){
-    const t = latest.slice(0,3);          // 上位3件
-    [label,label2,label3] = t.map(r=>r.label).concat(['','','']).slice(0,3);
-    [conf,conf2,conf3]   = t.map(r=>nf(r.confidence,0,2)).concat(['','','']).slice(0,3);
-    lastUpdate = millis();
+  /* ② 0.5 秒ごとにラベル更新（★ここが draw() の中！） */
+  if (latestResults.length && millis() - lastUpdateTime > updateInterval) {
+    const top = latestResults.slice(0, 3);                   // 上位3件
+    [label, label2, label3] = top.map(r => r.label).concat(['', '', '']).slice(0, 3);
+    [conf,  conf2,  conf3 ] = top.map(r => nf(r.confidence, 0, 2)).concat(['', '', '']).slice(0, 3);
+    lastUpdateTime = millis();
   }
 
-  /* 3. ラベルと信頼度を固定位置に描画 */
-  fill(255); textSize(16); textAlign(CENTER);
-  text(label,   width*0.2, height-30);  text(conf,   width*0.2, height-4);
-  text(label2,  width*0.5, height-30);  text(conf2,  width*0.5, height-4);
-  text(label3,  width*0.8, height-30);  text(conf3,  width*0.8, height-4);
+  /* ③ ラベルと信頼度を固定位置に描画 */
+  fill(255);
+  textSize(16);
+  textAlign(CENTER);
+  text(label,  width * 0.2, height - 30);  text(conf,  width * 0.2, height - 4);
+  text(label2, width * 0.5, height - 30);  text(conf2, width * 0.5, height - 4);
+  text(label3, width * 0.8, height - 30);  text(conf3, width * 0.8, height - 4);
 }
