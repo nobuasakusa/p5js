@@ -53,7 +53,7 @@ function setup() {
 function draw() {
   background(0);
   if (video.loadedmetadata) {
-    image(Video, 0, 0);//そのまま表示
+    image(video, 0, 0);//そのまま表示
   }
 }
 
