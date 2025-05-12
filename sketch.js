@@ -6,72 +6,68 @@
 let classifier;
 const modelURL = 'https://teachablemachine.withgoogle.com/models/bXy2kDNi/';
 
+
 let video;
-let modelReady = false;
-let videoReady = false;
+let latestResults = [];            // 直近の生データ
+let lastUpdateTime = 0;
+const updateInterval = 500;        // 0.5 秒
 
-let results = [];     // ← 最新結果をここに丸ごと保持
+// ラベルと信頼度を表示用に保持
+let label  = '', label2 = '', label3 = '';
+let conf   = '', conf2  = '', conf3  = '';
 
-// --------------- モデル読み込み -----------------
 function preload() {
-  classifier = ml5.imageClassifier(modelURL + 'model.json',
-    () => { modelReady = true; tryStart(); });
+  // モデルだけ先に読む
+  classifier = ml5.imageClassifier(modelURL + 'model.json');
 }
 
-// --------------- セットアップ -------------------
 function setup() {
   createCanvas(320, 300);
 
-  video = createCapture(VIDEO, () => {
-    videoReady = true;
-    tryStart();
-  });
+  // カメラ起動 → 準備完了したら分類開始
+  video = createCapture(VIDEO, () => classifyVideo());
   video.size(320, 240);
   video.hide();
 }
 
-// モデルもカメラも準備 OK なら分類スタート
-function tryStart() {
-  if (modelReady && videoReady) classifyVideo();
-}
-
-// --------------- 分類ループ ---------------------
-function classifyVideo() {
-  classifier.classify(video, gotResult);
-}
-
-// 結果を受け取ったら配列ごと保存し、ただちに次フレームへ
-function gotResult(err, r) {
-  if (err) { console.error(err); return; }
-  results = r;                 // ← ★ 1 行で更新
-  classifyVideo();             // 連続分類
-}
-
-// --------------- 描画 ---------------------------
 function draw() {
   background(0);
 
-  /* A) カメラ映像を鏡写しで描く */
+  // A) 映像を鏡写しで表示
   push();
   translate(video.width, 0);
   scale(-1, 1);
   image(video, 0, 0);
   pop();
 
-  /* B) ラベルと信頼度を常に描く */
-  const n = results.length;    // クラス数（2,3,4…）
-  if (n === 0) return;         // まだ結果が無い
+  // B) 0.5 秒ごとに表示用変数を更新
+  if (latestResults.length && millis() - lastUpdateTime > updateInterval) {
+    // 上位3件（不足分は空文字）
+    const top = latestResults.slice(0, 3);
+    [label, label2, label3] = top.map(r => r.label).concat(['', '', '']).slice(0, 3);
+    [conf, conf2, conf3]    = top.map(r => nf(r.confidence, 0, 2)).concat(['', '', '']).slice(0, 3);
+    lastUpdateTime = millis();
+  }
 
+  // C) ラベルと信頼度を描画（0.2 / 0.5 / 0.8 の位置）
+  fill(255);
   textSize(16);
   textAlign(CENTER);
-  fill(255);
+  text(label,   width * 0.2, height - 30);
+  text(conf,    width * 0.2, height -  4);
+  text(label2,  width * 0.5, height - 30);
+  text(conf2,   width * 0.5, height -  4);
+  text(label3,  width * 0.8, height - 30);
+  text(conf3,   width * 0.8, height -  4);
+}
 
-  // 横位置を均等割り
-  for (let i = 0; i < n; i++) {
-    const x = width * (i + 1) / (n + 1);
-    const lbl = results[i].label;
-    const prob = (results[i].confidence).toFixed(2); // 小数点2桁
-    text(lbl,  x, height - 28);
-    text(prob, x, height - 6);
-  }
+// --------- 分類ループ ------------------------------------------
+function classifyVideo() {
+  classifier.classify(video, gotResult);
+}
+
+function gotResult(err, results) {
+  if (err) { console.error(err); return; }
+  latestResults = results;       // ★ 生データを保存
+  classifyVideo();               // 再帰的にループ
 }
