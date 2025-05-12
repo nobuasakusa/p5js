@@ -14,67 +14,59 @@ let latestResults = null;
 let lastUpdate   = 0;
 const UPDATE_INTERVAL = 500;   // 0.5 秒
 
-// 画面に出すラベルと信頼度（上位 3 件）
 let labels = ['', '', ''];
 let probs  = ['', '', ''];
 
-// ===== ① モデル読み込み =====
+// -------------- モデルを読む --------------
 function preload() {
-  // 第 2 引数にコールバックを渡すことで読み込み完了を検知
-  classifier = ml5.imageClassifier(modelURL + 'model.json', modelLoaded);
+  classifier = ml5.imageClassifier(modelURL + 'model.json', () => {
+    modelReady = true;
+    tryStartClassification();
+  });
 }
 
-// ===== ② セットアップ =====
+// -------------- カメラを開く --------------
 function setup() {
   createCanvas(320, 300);
 
-  // カメラの準備が完了したら videoReady = true
   video = createCapture(VIDEO, () => {
     videoReady = true;
     tryStartClassification();
   });
   video.size(320, 240);
-  video.hide();               // 自分で描画するので隠す
+  video.hide();
 }
 
-// ===== モデル読み込み完了時 =====
-function modelLoaded() {
-  console.log('Model is ready');
-  modelReady = true;
-  tryStartClassification();
-}
-
-// ===== モデルとカメラ両方そろったら分類開始 =====
+// -------------- 両方そろったら分類開始 --------------
 function tryStartClassification() {
   if (modelReady && videoReady) {
     classifyVideo();
   }
 }
 
-// ===== ビデオを分類 =====
 function classifyVideo() {
-  // 左右反転して人物と同じ向きに
-  const flipped = ml5.flipImage(video);
-
-  classifier.classify(flipped, (err, results) => {
-    if (err) {
-      console.error(err);
-      return;
-    }
-    latestResults = results;      // 結果を保存
-    flipped.remove();             // メモリ解放
-    classifyVideo();              // 連続分類
-  });
+  // flipImage が無いので video を直接渡す
+  classifier.classify(video, gotResult);
 }
 
-// ===== ③ メインループ =====
+function gotResult(err, results) {
+  if (err) { console.error(err); return; }
+  latestResults = results;
+  classifyVideo();           // 連続分類
+}
+
+// -------------- 描画 --------------
 function draw() {
   background(0);
 
-  // (a) カメラ映像
+  // (A) 映像を鏡写しにして表示
+  push();
+  translate(video.width, 0);   // 右端を基準に
+  scale(-1, 1);                // 左右反転
   image(video, 0, 0);
+  pop();
 
-  // (b) 0.5 秒おきに表示データを更新
+  // (B) 0.5 秒おきにラベル更新
   if (latestResults && millis() - lastUpdate > UPDATE_INTERVAL) {
     for (let i = 0; i < 3; i++) {
       labels[i] = latestResults[i]?.label ?? '';
@@ -83,7 +75,7 @@ function draw() {
     lastUpdate = millis();
   }
 
-  // (c) ラベルと信頼度を描画
+  // (C) テキスト描画
   fill(255);
   textSize(16);
   textAlign(CENTER);
