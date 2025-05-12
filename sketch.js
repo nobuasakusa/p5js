@@ -7,39 +7,74 @@ let classifier;
 const modelURL = 'https://teachablemachine.withgoogle.com/models/bXy2kDNi/';
 
 let video;
+let modelReady = false;
+let videoReady = false;
+
 let latestResults = null;
-let lastUpdate = 0;
+let lastUpdate   = 0;
 const UPDATE_INTERVAL = 500;   // 0.5 秒
 
 // 画面に出すラベルと信頼度（上位 3 件）
-let labels   = ['', '', ''];
-let probs    = ['', '', ''];
+let labels = ['', '', ''];
+let probs  = ['', '', ''];
 
-// ===== モデル読み込み =====
+// ===== ① モデル読み込み =====
 function preload() {
-  classifier = ml5.imageClassifier(modelURL + 'model.json');
+  // 第 2 引数にコールバックを渡すことで読み込み完了を検知
+  classifier = ml5.imageClassifier(modelURL + 'model.json', modelLoaded);
 }
 
-// ===== セットアップ =====
+// ===== ② セットアップ =====
 function setup() {
   createCanvas(320, 300);
 
+  // カメラの準備が完了したら videoReady = true
   video = createCapture(VIDEO, () => {
-    // カメラ準備完了後に最初の分類
-    classifyVideo();
+    videoReady = true;
+    tryStartClassification();
   });
   video.size(320, 240);
-  video.hide();               // p5 の video 要素は自分で描画する
+  video.hide();               // 自分で描画するので隠す
 }
 
-// ===== メインループ =====
+// ===== モデル読み込み完了時 =====
+function modelLoaded() {
+  console.log('Model is ready');
+  modelReady = true;
+  tryStartClassification();
+}
+
+// ===== モデルとカメラ両方そろったら分類開始 =====
+function tryStartClassification() {
+  if (modelReady && videoReady) {
+    classifyVideo();
+  }
+}
+
+// ===== ビデオを分類 =====
+function classifyVideo() {
+  // 左右反転して人物と同じ向きに
+  const flipped = ml5.flipImage(video);
+
+  classifier.classify(flipped, (err, results) => {
+    if (err) {
+      console.error(err);
+      return;
+    }
+    latestResults = results;      // 結果を保存
+    flipped.remove();             // メモリ解放
+    classifyVideo();              // 連続分類
+  });
+}
+
+// ===== ③ メインループ =====
 function draw() {
   background(0);
 
-  // (1) カメラ映像を描画
+  // (a) カメラ映像
   image(video, 0, 0);
 
-  // (2) 0.5 秒ごとに結果を更新
+  // (b) 0.5 秒おきに表示データを更新
   if (latestResults && millis() - lastUpdate > UPDATE_INTERVAL) {
     for (let i = 0; i < 3; i++) {
       labels[i] = latestResults[i]?.label ?? '';
@@ -48,7 +83,7 @@ function draw() {
     lastUpdate = millis();
   }
 
-  // (3) ラベルと信頼度を描画
+  // (c) ラベルと信頼度を描画
   fill(255);
   textSize(16);
   textAlign(CENTER);
@@ -57,15 +92,4 @@ function draw() {
     text(labels[i], xs[i], height - 30);
     text(probs[i],  xs[i], height - 4);
   }
-}
-
-// ===== ビデオを分類 =====
-function classifyVideo() {
-  const flipped = ml5.flipImage(video);          // 左右反転
-  classifier.classify(flipped, (err, results) => {
-    if (err) { console.error(err); return; }
-    latestResults = results;
-    flipped.remove();                            // メモリ回収
-    classifyVideo();                             // 連続分類
-  });
 }
