@@ -70,42 +70,56 @@ function classifyVideo() {
   classifier.classify(video, gotResult);
 }
 
-// ★★★ gotResult 関数を以下のように修正 ★★★
+// ★★★ gotResult 関数を以下のように修正（デバッグ強化版） ★★★
 function gotResult(err, results) {
+  console.log('--- gotResult DEBUG START ---');
+  console.log('[DEBUG] raw err argument:', err);
+  console.log('[DEBUG] raw results argument:', results);
+  console.log('[DEBUG] typeof err:', typeof err);
+  console.log('[DEBUG] err instanceof Error:', err instanceof Error);
+  console.log('[DEBUG] Array.isArray(err):', Array.isArray(err));
+
+  if (err) {
+    console.log('[DEBUG] err object keys:', typeof err === 'object' && err !== null ? Object.keys(err) : 'not an object or null');
+    console.log('[DEBUG] err.message:', err.message);
+    console.log('[DEBUG] err.name:', err.name);
+    console.log('[DEBUG] err.length (if any):', err.length);
+    if (Array.isArray(err) && err.length > 0) {
+      console.log('[DEBUG] err[0]:', err[0]);
+      if (err[0]) {
+        console.log('[DEBUG] typeof err[0].label:', typeof err[0].label);
+        console.log('[DEBUG] err[0].label:', err[0].label);
+        console.log('[DEBUG] typeof err[0].confidence:', typeof err[0].confidence);
+        console.log('[DEBUG] err[0].confidence:', err[0].confidence);
+      }
+    }
+  }
+  console.log('--- gotResult DEBUG END ---');
+
   let actualError = null;
   let actualResults = null;
 
-  // デバッグ用に受け取った引数をそのまま表示
-  // console.log('gotResult raw arguments: err =', err, ', results =', results);
-
-  // err引数に結果らしきものが入っているかチェック
-  if (err && Array.isArray(err) && err.length > 0 && err[0] && typeof err[0].label !== 'undefined' && typeof err[0].confidence !== 'undefined') {
-    // err の中身が分類結果の形式である場合
-    console.warn('gotResult: 最初の引数(err)に分類結果らしきデータが含まれていました。これを結果として扱います。err:', err);
-    actualResults = err; // err を結果として採用
-    actualError = null;  // エラーは無かったものとする (もし2番目の引数にも何かあれば、それは無視)
-  } else if (err) {
-    // err が上記条件に合致しない、真のエラーオブジェクトである場合
+  // 判定ロジック：errが実質的に結果配列であるか？
+  // 条件: errが存在し、配列であり、要素があり、最初の要素にlabelプロパティがある
+  if (err && Array.isArray(err) && err.length > 0 && err[0] && typeof err[0].label !== 'undefined') {
+    console.warn('gotResult: 最初の引数(err)を「結果」として扱います。err:', err);
+    actualResults = err;
+    actualError = null;
+  } else if (err) { // err が存在するが上記条件に合致しない場合、エラーとして扱う
     actualError = err;
-    actualResults = results; // この場合 results は undefined かもしれない
-  } else {
-    // err が null または undefined (エラーなし) の場合、results を結果として採用
+    actualResults = results; // この場合 results は通常 undefined
+  } else { // err が null または undefined の場合 (正常ケース)
     actualError = null;
     actualResults = results;
   }
 
   // エラー処理
   if (actualError) {
-    console.error('gotResult: 分類エラーが発生しました。');
-    console.error('--- エラーオブジェクト詳細ここから ---');
-    console.error('エラーオブジェクト全体:', actualError);
-    if (actualError.message) { console.error('エラーメッセージ (actualError.message):', actualError.message); }
-    if (actualError.stack) { console.error('スタックトレース (actualError.stack):', actualError.stack); }
-    // (必要に応じて、以前提案したより詳細なエラー情報出力コードを追加)
-    console.error('--- エラーオブジェクト詳細ここまで ---');
+    console.error('gotResult: 分類エラーとして処理します。actualError:', actualError); // ログメッセージ変更
+    // (ここに以前提案した詳細なエラーオブジェクト出力コードを追加しても良い)
     label = '分類エラー';
     conf = '';
-    classifyVideo(); // エラー後も次の分類を試みる (エラーが頻発する場合はループを止める検討も)
+    classifyVideo();
     return;
   }
 
@@ -114,12 +128,12 @@ function gotResult(err, results) {
     console.log('gotResult: 分類結果を処理します。件数:', actualResults.length, '内容:', actualResults);
     latestResults = actualResults;
   } else {
-    console.log('gotResult: 結果が空、または有効な結果がありませんでした。actualResults:', actualResults);
-    // latestResults = []; // 結果がなければ空にする場合
+    console.log('gotResult: 結果が空か有効な結果なし。actualResults:', actualResults);
   }
 
-  classifyVideo(); // 次の分類をスケジュール
+  classifyVideo();
 }
+
 
 // ----------------- 描画 (draw) ------------------------
 function draw() {
@@ -139,15 +153,12 @@ function draw() {
   }
 
   if (modelReady && videoReadyFlag && latestResults && latestResults.length > 0 && millis() - lastUpdateTime > updateInterval) {
-    // console.log('draw: ラベル情報を更新します。latestResults[0]:', latestResults[0]);
     const top = latestResults.slice(0, 3);
 
     label  = top[0] ? top[0].label : '---';
     conf   = top[0] ? nf(top[0].confidence, 0, 2) : '';
-
     label2 = top[1] ? top[1].label : '';
     conf2  = top[1] ? nf(top[1].confidence, 0, 2) : '';
-
     label3 = top[2] ? top[2].label : '';
     conf3  = top[2] ? nf(top[2].confidence, 0, 2) : '';
 
@@ -169,4 +180,5 @@ function draw() {
   text(label2, width * 0.5,  y_label); text(conf2, width * 0.5,  y_conf);
   text(label3, width * 0.75, y_label); text(conf3, width * 0.75, y_conf);
 }
+
 
