@@ -4,7 +4,7 @@
 
 // ===== グローバル変数 =====
 let classifier;
-const modelURL = 'https://teachablemachine.withgoogle.com/models/bXy2kDNi/';
+const modelURL = 'https://teachablemachine.withgoogle.com/models/FkkCfauKt/';
 
 
 let video;
