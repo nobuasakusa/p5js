@@ -42,7 +42,7 @@ function setup() {
   video = createCapture(VIDEO, videoReadyCallback);
   video.size(320, 240);
   video.hide();
-  console.log('setup: ビデオキャプチャのセットアップが完了しました（準備待ち）。');
+  console.log('setup: ビデオキャプチャのセットアップを開始しました（準備待ち）。');
 }
 
 function videoReadyCallback() {
@@ -59,79 +59,51 @@ function videoReadyCallback() {
 // ----------------- 分類ループ (classifyVideo, gotResult) -----------------
 function classifyVideo() {
   if (!modelReady) {
-    console.warn('classifyVideo: モデルがまだ準備できていません。分類をスキップします。');
+    // console.warn('classifyVideo: モデルがまだ準備できていません。分類をスキップします。');
     return;
   }
   if (!videoReadyFlag || !video.elt || video.elt.readyState !== 4) {
-    console.warn('classifyVideo: ビデオがまだ準備できていないか、再生可能ではありません。100ms後に再試行します。');
-    setTimeout(classifyVideo, 100);
+    // console.warn('classifyVideo: ビデオがまだ準備できていないか、再生可能ではありません。100ms後に再試行します。');
+    setTimeout(classifyVideo, 100); // 準備ができるまでリトライ
     return;
   }
   classifier.classify(video, gotResult);
 }
 
-// ★★★ gotResult 関数を以下のように修正（デバッグ強化版） ★★★
 function gotResult(err, results) {
-  console.log('--- gotResult DEBUG START ---');
-  console.log('[DEBUG] raw err argument:', err);
-  console.log('[DEBUG] raw results argument:', results);
-  console.log('[DEBUG] typeof err:', typeof err);
-  console.log('[DEBUG] err instanceof Error:', err instanceof Error);
-  console.log('[DEBUG] Array.isArray(err):', Array.isArray(err));
-
-  if (err) {
-    console.log('[DEBUG] err object keys:', typeof err === 'object' && err !== null ? Object.keys(err) : 'not an object or null');
-    console.log('[DEBUG] err.message:', err.message);
-    console.log('[DEBUG] err.name:', err.name);
-    console.log('[DEBUG] err.length (if any):', err.length);
-    if (Array.isArray(err) && err.length > 0) {
-      console.log('[DEBUG] err[0]:', err[0]);
-      if (err[0]) {
-        console.log('[DEBUG] typeof err[0].label:', typeof err[0].label);
-        console.log('[DEBUG] err[0].label:', err[0].label);
-        console.log('[DEBUG] typeof err[0].confidence:', typeof err[0].confidence);
-        console.log('[DEBUG] err[0].confidence:', err[0].confidence);
-      }
-    }
-  }
-  console.log('--- gotResult DEBUG END ---');
-
   let actualError = null;
   let actualResults = null;
 
-  // 判定ロジック：errが実質的に結果配列であるか？
-  // 条件: errが存在し、配列であり、要素があり、最初の要素にlabelプロパティがある
+  // err引数に結果らしきものが入っているかチェック (このプログラムの特有処理)
   if (err && Array.isArray(err) && err.length > 0 && err[0] && typeof err[0].label !== 'undefined') {
-    console.warn('gotResult: 最初の引数(err)を「結果」として扱います。err:', err);
+    // console.warn('gotResult: 最初の引数(err)を「結果」として扱います。err:', err); // 特殊処理が作動したことを示すログ(必要に応じてコメント解除)
     actualResults = err;
     actualError = null;
-  } else if (err) { // err が存在するが上記条件に合致しない場合、エラーとして扱う
+  } else if (err) {
     actualError = err;
-    actualResults = results; // この場合 results は通常 undefined
-  } else { // err が null または undefined の場合 (正常ケース)
+    actualResults = results;
+  } else {
     actualError = null;
     actualResults = results;
   }
 
-  // エラー処理
   if (actualError) {
-    console.error('gotResult: 分類エラーとして処理します。actualError:', actualError); // ログメッセージ変更
-    // (ここに以前提案した詳細なエラーオブジェクト出力コードを追加しても良い)
+    console.error('gotResult: 分類エラーが発生しました。エラー内容:', actualError);
     label = '分類エラー';
     conf = '';
-    classifyVideo();
+    // エラー発生後も次の分類を試みる（エラーが頻発する場合はループを止める検討も）
+    setTimeout(classifyVideo, 1000); // 1秒後にリトライ
     return;
   }
 
-  // 結果処理
   if (actualResults && actualResults.length > 0) {
-    console.log('gotResult: 分類結果を処理します。件数:', actualResults.length, '内容:', actualResults);
+    // console.log('gotResult: 分類結果を処理します。件数:', actualResults.length); // 必要であれば結果件数ログを有効化
     latestResults = actualResults;
   } else {
-    console.log('gotResult: 結果が空か有効な結果なし。actualResults:', actualResults);
+    // console.log('gotResult: 結果が空か有効な結果なし。');
   }
 
-  classifyVideo();
+  classifyVideo(); // 次の分類をスケジュール
 }
 
 
@@ -146,14 +118,12 @@ function draw() {
     image(video, 0, 0, video.width, video.height);
     pop();
   } else {
-    fill(100);
-    textAlign(CENTER, CENTER);
-    textSize(16);
-    text('ビデオ準備中...', width / 2, height / 2 - 20);
+    // ビデオ準備中の表示は画面上の 'label' 変数に任せる
   }
 
+  // ラベル更新ロジック (0.5秒ごと)
   if (modelReady && videoReadyFlag && latestResults && latestResults.length > 0 && millis() - lastUpdateTime > updateInterval) {
-    const top = latestResults.slice(0, 3);
+    const top = latestResults.slice(0, 3); // 上位3件
 
     label  = top[0] ? top[0].label : '---';
     conf   = top[0] ? nf(top[0].confidence, 0, 2) : '';
@@ -163,22 +133,24 @@ function draw() {
     conf3  = top[2] ? nf(top[2].confidence, 0, 2) : '';
 
     lastUpdateTime = millis();
-  } else if (modelReady && videoReadyFlag && latestResults && latestResults.length === 0 && label !== '分類待機中...' && label !== 'モデル読込中...' && label !== 'カメラ準備中...' && label !== '分類エラー' && label !== '対象なし') {
+  } else if (modelReady && videoReadyFlag && latestResults && latestResults.length === 0 &&
+             label !== '分類待機中...' && label !== 'モデル読込中...' && label !== 'カメラ準備中...' &&
+             label !== '分類エラー' && label !== '対象なし') {
+      // 結果が得られていたが、その後検出対象がなくなった場合
       label = '対象なし';
       conf = '';
       label2 = ''; conf2 = '';
       label3 = ''; conf3 = '';
   }
 
+  // ラベルと信頼度の描画
   fill(255);
   textSize(16);
   textAlign(CENTER);
   const y_label = height - 35;
   const y_conf  = height - 15;
 
-  text(label,  width * 0.25, y_label); text(conf,  width * 0.25, y_conf);
-  text(label2, width * 0.5,  y_label); text(conf2, width * 0.5,  y_conf);
-  text(label3, width * 0.75, y_label); text(conf3, width * 0.75, y_conf);
+  text(label,  width * 0.15, y_label); text(conf,  width * 0.15, y_conf);
+  text(label2, width * 0.50,  y_label); text(conf2, width * 0.50,  y_conf);
+  text(label3, width * 0.85, y_label); text(conf3, width * 0.85, y_conf);
 }
-
-
